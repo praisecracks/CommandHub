@@ -1,37 +1,44 @@
 {
   "expo": {
-    "name": "my-expo-app",
+    "name": "Custom Hub",
     "slug": "my-expo-app",
+    "owner": "praisecrackdev",
+    "scheme": "custom-hub-auth",
     "version": "1.0.0",
-
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-
-    "experiments": {
-      "tsconfigPaths": true
-    },
-
-    "plugins": [],
-
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-
-    "userInterfaceStyle": "light",
-
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#020408"
     },
-    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.customhub.app",
+      "userInterfaceStyle": "dark"
     },
     "android": {
+      "package": "com.customhub.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#020408"
+      },
+      "softwareKeyboardLayoutMode": "pan",
+      "minSdkVersion": 26,
+      "targetSdkVersion": 34,
+      "compileSdkVersion": 34
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eba16db0-6404-4497-ae9a-1195194ddb4a"
       }
     }
   }

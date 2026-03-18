@@ -3,3 +3,8 @@
 @import 'tailwindcss/utilities.css';
 
 @import 'nativewind/theme';
+
+
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities; */

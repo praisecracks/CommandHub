@@ -1,0 +1,237 @@
+I think it just time to work on the hubscreen I
+
+
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, Text, ScrollView, TouchableOpacity, Image, StatusBar, 
+  Animated, Easing, Alert 
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import DecisionModal from './DecisionModal'; 
+
+export default function HubScreen() {
+  const navigation = useNavigation();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // --- STATE ---
+  const [isArchiveVisible, setArchiveVisible] = useState(false);
+  const [decisions, setDecisions] = useState([
+    { id: '1', task: 'Approve Tech Hub plan', done: true },
+    { id: '2', task: 'Call investor', done: false },
+    { id: '3', task: 'Review Q1 Strategy', done: false }
+  ]);
+
+  // --- ANIMATION REFS ---
+  const techHubAnim = useRef(new Animated.Value(0)).current;
+  const farmRunnerAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current; // New Light Ref
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+
+    // --- LIGHTING EFFECT ANIMATION ---
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.bezier(0.42, 0, 0.58, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 4000,
+          easing: Easing.bezier(0.42, 0, 0.58, 1),
+          useNativeDriver: true,
+        })
+      ])
+    ).start();
+
+    // --- PROGRESS BARS ---
+    Animated.stagger(200, [
+      Animated.timing(techHubAnim, {
+        toValue: 0.72, duration: 1500, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: false,
+      }),
+      Animated.timing(farmRunnerAnim, {
+        toValue: 0.45, duration: 1500, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: false,
+      }),
+    ]).start();
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // --- LOGIC HANDLERS ---
+  const toggleDecision = (id) => {
+    setDecisions(prev => prev.map(item => 
+      item.id === id ? { ...item, done: !item.done } : item
+    ));
+  };
+
+  const handleDelete = (id) => {
+    Alert.alert("Delete Decision", "Remove this from your archive?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => {
+        setDecisions(prev => prev.filter(item => item.id !== id));
+      }}
+    ]);
+  };
+
+  const handleAddDecision = (text) => {
+    const newEntry = { id: Date.now().toString(), task: text, done: false };
+    setDecisions([newEntry, ...decisions]);
+  };
+
+  const formatTime = (date) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return { 
+      timeString: `${hours}:${minutes}`, 
+      ampm,
+      dateString: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    };
+  };
+
+  const { timeString, ampm, dateString } = formatTime(currentTime);
+
+  return (
+    <SafeAreaView edges={['top']} className="flex-1 bg-[#050508]">
+      <StatusBar barStyle="light-content" />
+
+      {/* --- AMBIENT LIGHTING (POSITIONED PERFECTLY) --- */}
+      <Animated.View 
+        style={{
+          opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.15] }),
+          transform: [
+            { scale: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] }) },
+            { translateY: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -30] }) }
+          ]
+        }}
+        className="absolute top-[-5%] right-[-15%] w-[100%] h-[40%] bg-[#00D2FF] rounded-full blur-[100px]"
+      />
+      
+      <ScrollView className="p-6" showsVerticalScrollIndicator={false}>
+        
+        {/* --- HEADER --- */}
+        <View style={{ paddingTop: 10 }} className="flex-row justify-between items-start mb-8">
+          <View>
+            <Text className="text-gray-400 text-lg font-medium">Good Morning,</Text>
+            <Text className="text-white text-3xl font-bold tracking-tight">Durotoluwa</Text>
+          </View>
+          
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Profile')}
+            className="h-12 w-12 rounded-2xl overflow-hidden border-2 border-[#00D2FF]/20"
+          >
+            <Image 
+              source={{ uri: 'https://ui-avatars.com/api/?name=Durotoluwa&background=00D2FF&color=fff' }} 
+              className="h-full w-full"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* --- CLOCK --- */}
+        <View className="bg-[#12121A]/80 p-6 rounded-[32px] border border-white/10 mb-8 flex-row items-center justify-between shadow-2xl">
+          <View className="flex-row items-baseline">
+            <Text className="text-white text-5xl font-light tracking-tighter">{timeString}</Text>
+            <Text className="text-[#00D2FF] text-lg font-bold ml-2 tracking-widest">{ampm}</Text>
+          </View>
+          <View className="h-8 w-[1px] bg-white/10 mx-4" />
+          <Text className="text-gray-400 text-sm font-semibold uppercase tracking-widest flex-1">{dateString}</Text>
+        </View>
+
+        {/* --- DECISIONS SECTION --- */}
+        <View className="bg-[#0D0D12] p-6 rounded-[32px] border border-white/5 mb-6">
+          <View className="flex-row justify-between items-center mb-6">
+            <Text className="text-white text-xl font-bold tracking-tight">Today's Decisions</Text>
+            <TouchableOpacity onPress={() => setArchiveVisible(true)}>
+               <Ionicons name="apps-outline" size={22} color="#00D2FF" />
+            </TouchableOpacity>
+          </View>
+          
+          <View>
+            {decisions.slice(0, 3).map((item) => (
+              <View key={item.id} className="flex-row items-center py-4 border-b border-white/5">
+                <TouchableOpacity 
+                  onPress={() => toggleDecision(item.id)}
+                  className={`h-6 w-6 rounded-lg border-2 items-center justify-center mr-4 ${item.done ? 'bg-[#00D2FF] border-[#00D2FF]' : 'border-white/20'}`}
+                >
+                  {item.done && <Ionicons name="checkmark" size={16} color="black" />}
+                </TouchableOpacity>
+                <Text className={`text-base flex-1 ${item.done ? 'text-gray-500 line-through' : 'text-gray-200 font-medium'}`}>
+                  {item.task}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity 
+            onPress={() => setArchiveVisible(true)}
+            className="mt-6 py-4 bg-white/5 rounded-2xl items-center border border-white/10"
+          >
+            <Text className="text-[#00D2FF] text-sm font-bold uppercase tracking-[2px]">Manage Archive</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* --- ECOSYSTEMS --- */}
+        <View className="bg-[#0D0D12] p-6 rounded-[32px] border border-white/5 mb-40">
+          <Text className="text-white text-xl font-bold tracking-tight mb-6">Ecosystems</Text>
+          <View className="mb-6">
+            <View className="flex-row justify-between mb-3">
+              <Text className="text-gray-200 text-lg font-semibold">Tech Hub</Text>
+              <Text className="text-white text-lg font-bold">72%</Text>
+            </View>
+            <View className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+              <Animated.View 
+                style={{ 
+                  width: techHubAnim.interpolate({inputRange: [0, 1], outputRange: ['0%', '100%']}), 
+                  backgroundColor: '#00D2FF' 
+                }} 
+                className="h-full rounded-full" 
+              />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* --- MODAL --- */}
+      <DecisionModal 
+        isVisible={isArchiveVisible}
+        onClose={() => setArchiveVisible(false)}
+        decisions={decisions}
+        onAdd={handleAddDecision}
+        onDelete={handleDelete}
+        onToggle={toggleDecision}
+      />
+
+    </SafeAreaView>
+  );
+}
+
+
+
+Instaed oh having the hubscreens to include the header too inside to make it easy to reuse code and to maintain clean structure
+
+
+So the greetings
+Then first name, if name is short first name and second name
+then at the other right hand side, has we had it to be profile pic or initials, now we re adding notification button beside it
+
+
+import React from 'react'
+
+function HubNavbar() {
+  return (
+    <view>
+        <text>
+            HubNavbar was created inside a component folder.
+        </text>
+    </view>
+  )
+}
+
+export default HubNavbar
