@@ -1,7 +1,7 @@
-// App.js - Fix notification for web
+// App.js - Dynamic configuration with config loading
 import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, StatusBar, StyleSheet, AppState, Text, Platform, LogBox } from 'react-native';
+import { View, StatusBar, StyleSheet, AppState, Text, Platform, LogBox } from 'react-native';
 
 // Ignore specific native module error that requires a rebuild
 LogBox.ignoreLogs([
@@ -9,6 +9,7 @@ LogBox.ignoreLogs([
   "Unable to get the view config",
   "native view manager for module"
 ]);
+
 import { NavigationContainer, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,13 +20,22 @@ import { auth, db } from './firebaseConfig';
 import AppNavigator from './AppNavigator';
 import SignalService from './components/services/SignalService';
 import CustomLoader from './components/common/CustomLoader';
+import ConfigService from './components/services/ConfigService';
 import './global.css';
 
 // Create a navigation ref to handle notifications from App.js
 const navigationRef = createNavigationContainerRef();
 
-// Configure notifications - only on native platforms
-if (Platform.OS !== 'web') {
+// Configure notifications - only on native platforms and if enabled
+const setupNotifications = async (config) => {
+  if (Platform.OS === 'web') return;
+  
+  const notificationsEnabled = config?.FEATURE_FLAGS?.enableNotifications !== false;
+  if (!notificationsEnabled) {
+    console.log('🔕 Notifications disabled by config');
+    return;
+  }
+
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -36,7 +46,7 @@ if (Platform.OS !== 'web') {
       priority: Notifications.AndroidNotificationPriority.HIGH,
     }),
   });
-}
+};
 
 const MyDarkTheme = {
   ...DarkTheme,
@@ -55,13 +65,38 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [appState, setAppState] = useState(AppState.currentState);
   const [error, setError] = useState(null);
+  const [config, setConfig] = useState(ConfigService.getDefaults());
 
   console.log('📱 App rendering, initializing:', initializing);
 
+  // Load configuration on app start
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        console.log('⚙️ Loading app configuration...');
+        const appConfig = await ConfigService.loadConfig();
+        setConfig(appConfig);
+        
+        // Setup notifications after config is loaded
+        await setupNotifications(appConfig);
+        
+        console.log('✅ Configuration loaded successfully');
+      } catch (configError) {
+        console.error('Error loading config:', configError);
+        // Continue with default config (already set in initial state)
+      }
+    };
+    
+    loadConfig();
+  }, []);
+
   // Request notification permissions on start (only native)
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      console.log('🌐 Web platform - skipping native notifications');
+    if (Platform.OS === 'web') return;
+    
+    const notificationsEnabled = config?.FEATURE_FLAGS?.enableNotifications !== false;
+    if (!notificationsEnabled) {
+      console.log('🔕 Notifications disabled, skipping permission request');
       return;
     }
 
@@ -74,7 +109,7 @@ export default function App() {
         console.error('Notification permission error:', err);
       }
     })();
-  }, []);
+  }, [config]);
 
   // Modern navigation bar configuration (only Android)
   useEffect(() => {
@@ -118,14 +153,17 @@ export default function App() {
     }
   }, []);
 
-  // Automatic signal checking
+  // Automatic signal checking with dynamic interval
   useEffect(() => {
-    if (!user) {
-      console.log('⏸️ No user, skipping signal check');
+    if (!user || !config) {
+      console.log('⏸️ No user or config, skipping signal check');
       return;
     }
 
-    console.log('🔍 Setting up signal checking for user:', user.uid);
+    const signalIntervalHours = config?.SIGNAL_INTERVALS?.autoCheckHours || 12;
+    const intervalMs = signalIntervalHours * 60 * 60 * 1000;
+
+    console.log(`🔍 Setting up signal checking for user: ${user.uid} (every ${signalIntervalHours} hours)`);
 
     let intervalId;
     let isMounted = true;
@@ -143,14 +181,13 @@ export default function App() {
     };
 
     checkSignals();
-    // Increase interval to 12 hours (12 * 60 * 60 * 1000) to be more API friendly
-    intervalId = setInterval(checkSignals, 12 * 60 * 60 * 1000);
+    intervalId = setInterval(checkSignals, intervalMs);
 
     return () => {
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [user]);
+  }, [user, config]);
 
   // Check when app comes to foreground
   useEffect(() => {
@@ -168,13 +205,28 @@ export default function App() {
     return () => subscription.remove();
   }, [appState, user]);
 
-  // Schedule daily digest at 8 AM (only native)
+  // Schedule daily digest at configured time (only native)
   useEffect(() => {
     if (!user || Platform.OS === 'web') return;
+    
+    const dailyDigestEnabled = config?.FEATURE_FLAGS?.enableDailyDigest !== false;
+    if (!dailyDigestEnabled) {
+      console.log('📋 Daily digest disabled by config');
+      return;
+    }
+
+    const notificationsEnabled = config?.FEATURE_FLAGS?.enableNotifications !== false;
+    if (!notificationsEnabled) {
+      console.log('🔕 Notifications disabled, skipping daily digest');
+      return;
+    }
 
     const scheduleDailyDigest = async () => {
       try {
         await Notifications.cancelAllScheduledNotificationsAsync();
+
+        const hour = config?.NOTIFICATION_CONFIG?.dailyDigestHour || 8;
+        const minute = config?.NOTIFICATION_CONFIG?.dailyDigestMinute || 0;
 
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -184,20 +236,20 @@ export default function App() {
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour: 8,
-            minute: 0,
+            hour: hour,
+            minute: minute,
             channelId: 'default',
           },
         });
 
-        console.log('⏰ Daily digest scheduled for 8 AM');
+        console.log(`⏰ Daily digest scheduled for ${hour}:${minute}`);
       } catch (scheduleError) {
         console.error('Error scheduling daily digest:', scheduleError);
       }
     };
 
     scheduleDailyDigest();
-  }, [user]);
+  }, [user, config]);
 
   // Handle tapping on notifications
   useEffect(() => {
@@ -218,7 +270,6 @@ export default function App() {
     // Listener for foreground notifications
     const foregroundListener = Notifications.addNotificationReceivedListener(notification => {
       console.log('🔔 Foreground notification received:', notification.request.content.title);
-      // Optional: Show in-app banner or something
     });
 
     return () => {
@@ -243,7 +294,7 @@ export default function App() {
       <CustomLoader 
         type="fullscreen" 
         message="Initializing Hub..." 
-        subtext="Establishing secure connection to Custom Hub"
+        subtext="Loading configuration and establishing secure connection"
       />
     );
   }

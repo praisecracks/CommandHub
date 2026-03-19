@@ -9,6 +9,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import {
 } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 
+// ✅ UPDATED: Added welcome notification type
 const NOTIFICATION_TYPES = {
   task_assigned: { icon: '📋', color: '#6EA8FE', label: 'Task Assigned' },
   deadline_approaching: { icon: '⏰', color: '#F59E0B', label: 'Deadline' },
@@ -37,6 +39,8 @@ const NOTIFICATION_TYPES = {
   decision_reminder: { icon: '📊', color: '#F59E0B', label: 'Decision Reminder' },
   decision_overdue: { icon: '⚠️', color: '#EF4444', label: 'Decision Overdue' },
   decision_completed: { icon: '✅', color: '#30C48D', label: 'Decision Completed' },
+  // ✅ NEW: Welcome notification type
+  welcome: { icon: '🎉', color: '#10B981', label: 'Welcome' },
 };
 
 const FILTERS = ['All', 'Unread', 'Tasks', 'Decisions'];
@@ -56,41 +60,12 @@ const COLORS = {
   warning: '#F59E0B',
 };
 
-function buildFallbackEventKey(item) {
-  return [
-    item.type || 'notification',
-    item.title || '',
-    item.body || '',
-    item.data?.taskId || '',
-    item.data?.decisionId || '',
-    item.data?.commentId || '',
-    item.data?.followUpId || '',
-    item.recipientUid || '',
-  ].join('__');
-}
-
+// Simple dedupe - just filter valid items and sort
 function dedupeNotifications(items) {
-  const map = new Map();
-
-  for (const item of items) {
-    if (item.deleted) continue;
-
-    const dedupeKey = item.eventKey || buildFallbackEventKey(item);
-
-    if (!map.has(dedupeKey)) {
-      map.set(dedupeKey, item);
-    } else {
-      const existing = map.get(dedupeKey);
-      const existingTime = existing.createdAt?.getTime?.() || 0;
-      const currentTime = item.createdAt?.getTime?.() || 0;
-
-      if (currentTime > existingTime) {
-        map.set(dedupeKey, item);
-      }
-    }
-  }
-
-  return Array.from(map.values()).sort(
+  // Only filter out items without IDs - no aggressive grouping
+  const validItems = items.filter(item => item && item.id);
+  
+  return validItems.sort(
     (a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
   );
 }
@@ -128,7 +103,6 @@ export default function NotificationScreen({ navigation }) {
       (snapshot) => {
         const raw = snapshot.docs.map((itemDoc) => {
           const data = itemDoc.data();
-
           return {
             id: itemDoc.id,
             ...data,
@@ -136,7 +110,13 @@ export default function NotificationScreen({ navigation }) {
           };
         });
 
-        const cleaned = dedupeNotifications(raw);
+        // Filter out items marked as deleted
+        const filteredRaw = raw.filter(item => !item.deleted);
+        
+        // Apply dedupe (now just sorting, not grouping)
+        const cleaned = dedupeNotifications(filteredRaw);
+        
+        console.log('📱 Notifications loaded:', cleaned.length, 'raw:', raw.length);
         setNotifications(cleaned);
         setLoading(false);
       },
@@ -192,6 +172,7 @@ export default function NotificationScreen({ navigation }) {
         readAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      console.log('✅ Marked as read:', id);
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -206,6 +187,7 @@ export default function NotificationScreen({ navigation }) {
         read: false,
         updatedAt: serverTimestamp(),
       });
+      console.log('✅ Marked as unread:', id);
     } catch (error) {
       console.error('Error marking as unread:', error);
     }
@@ -230,6 +212,7 @@ export default function NotificationScreen({ navigation }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSelectedIds([]);
       setSelectionMode(false);
+      console.log('✅ Marked selected as read:', selectedIds.length);
     } catch (error) {
       console.error('Error marking selected as read:', error);
     }
@@ -253,6 +236,7 @@ export default function NotificationScreen({ navigation }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSelectedIds([]);
       setSelectionMode(false);
+      console.log('✅ Marked selected as unread:', selectedIds.length);
     } catch (error) {
       console.error('Error marking selected as unread:', error);
     }
@@ -278,6 +262,7 @@ export default function NotificationScreen({ navigation }) {
 
       await batch.commit();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('✅ Marked all as read:', unread.length);
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
@@ -299,14 +284,23 @@ export default function NotificationScreen({ navigation }) {
     try {
       if (deleteModal.mode === 'single' && deleteModal.id) {
         await deleteDoc(doc(db, 'users', user.uid, 'notifications', deleteModal.id));
+        console.log('✅ Deleted single notification:', deleteModal.id);
+        
+        // Immediately update local state
+        setNotifications(prev => prev.filter(n => n.id !== deleteModal.id));
+        
       } else if (deleteModal.mode === 'multiple' && selectedIds.length > 0) {
         const batch = writeBatch(db);
-
+        
         selectedIds.forEach((selectedId) => {
           batch.delete(doc(db, 'users', user.uid, 'notifications', selectedId));
         });
 
         await batch.commit();
+        console.log(`✅ Deleted ${selectedIds.length} notifications`);
+        
+        // Immediately update local state
+        setNotifications(prev => prev.filter(n => !selectedIds.includes(n.id)));
       }
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -315,6 +309,7 @@ export default function NotificationScreen({ navigation }) {
       setDeleteModal({ visible: false, mode: 'single', id: null });
     } catch (error) {
       console.error('Error deleting notifications:', error);
+      Alert.alert('Error', 'Failed to delete notifications. Please try again.');
       setDeleteModal({ visible: false, mode: 'single', id: null });
     }
   }, [deleteModal, selectedIds]);
@@ -331,15 +326,22 @@ export default function NotificationScreen({ navigation }) {
 
     try {
       const batch = writeBatch(db);
+      const readIds = readNotifications.map(n => n.id);
 
       readNotifications.forEach((item) => {
         batch.delete(doc(db, 'users', user.uid, 'notifications', item.id));
       });
 
       await batch.commit();
+      console.log(`✅ Cleared ${readNotifications.length} read notifications`);
+      
+      // Immediately update local state
+      setNotifications(prev => prev.filter(n => !readIds.includes(n.id)));
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Error clearing read notifications:', error);
+      Alert.alert('Error', 'Failed to clear notifications. Please try again.');
     } finally {
       setClearReadModal(false);
     }
@@ -531,7 +533,7 @@ export default function NotificationScreen({ navigation }) {
     ({ item }) => (
       <NotificationItem item={item} isSelected={selectedIds.includes(item.id)} />
     ),
-    [selectedIds, selectionMode, handlePress, handleLongPress]
+    [selectedIds, selectionMode, handlePress, handleLongPress, handleMarkAsRead, handleMarkAsUnread, handleDelete]
   );
 
   if (loading) {
@@ -666,6 +668,7 @@ export default function NotificationScreen({ navigation }) {
         }
       />
 
+      {/* Delete Confirmation Modal */}
       <Modal transparent visible={deleteModal.visible} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.confirmModal}>
@@ -698,6 +701,7 @@ export default function NotificationScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Clear Read Modal */}
       <Modal transparent visible={clearReadModal} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.confirmModal}>
@@ -728,6 +732,7 @@ export default function NotificationScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Detail Modal */}
       <Modal visible={detailModal.visible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.detailModal}>
@@ -828,6 +833,7 @@ export default function NotificationScreen({ navigation }) {
   );
 }
 
+// Keep all the styles from your original code
 const styles = StyleSheet.create({
   container: {
     flex: 1,

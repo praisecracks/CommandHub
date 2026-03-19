@@ -1,27 +1,32 @@
-import React from 'react';
-import { View, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { lazy, Suspense, memo, useCallback } from 'react';
+import { View, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 
-// Screen Imports
+// PERFORMANCE: Lazy load screens that aren't immediately visible
+// Auth screens - loaded immediately (needed for initial render)
 import LandingScreen from './LandingScreen';
 import LoginScreen from './LoginScreen';
 import SignUpScreen from './SignUpScreen';
+
+// Main tab screens - loaded immediately (core navigation)
 import HubScreen from './HubScreen';
 import GateScreen from './GateScreen';
 import RadarScreen from './RadarScreen';
 import DelegateScreen from './DelegateScreen';
-import ProfileScreen from './ProfileScreen';
-import DecisionScreen from './DecisionScreen';
-import TaskHistoryScreen from './TaskHistoryScreen';
-import NotificationScreen from './NotificationScreen';
-import DepartmentPerformanceScreen from './DepartmentPerformanceScreen';
-import SettingsScreen from './SettingsScreen';
-import FAQScreen from './screens/FAQScreen'; // ✅ NEW
-import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen'; // ✅ NEW
+
+// Secondary screens - lazy loaded (only when navigated to)
+const ProfileScreen = lazy(() => import('./ProfileScreen'));
+const DecisionScreen = lazy(() => import('./DecisionScreen'));
+const TaskHistoryScreen = lazy(() => import('./TaskHistoryScreen'));
+const NotificationScreen = lazy(() => import('./NotificationScreen'));
+const DepartmentPerformanceScreen = lazy(() => import('./DepartmentPerformanceScreen'));
+const SettingsScreen = lazy(() => import('./SettingsScreen'));
+const FAQScreen = lazy(() => import('./screens/FAQScreen'));
+const PrivacyPolicyScreen = lazy(() => import('./screens/PrivacyPolicyScreen'));
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -77,27 +82,44 @@ const styles = StyleSheet.create({
   },
 });
 
+// PERFORMANCE: Loading fallback for lazy-loaded screens
+const ScreenLoader = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: APP_COLORS.background }}>
+    <ActivityIndicator size="large" color={APP_COLORS.active} />
+  </View>
+);
+
+// PERFORMANCE: Wrap lazy screens with Suspense
+const withSuspense = (Component) => (props) => (
+  <Suspense fallback={<ScreenLoader />}>
+    <Component {...props} />
+  </Suspense>
+);
+
 // --- CUSTOM FLOATING BUTTON COMPONENT ---
-const FloatingActionButton = () => {
+// PERFORMANCE: Memoize to prevent unnecessary re-renders
+const FloatingActionButton = memo(() => {
   const navigation = useNavigation();
+
+  const handlePress = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    navigation.navigate('DecisionScreen'); 
+  }, [navigation]);
 
   return (
     <TouchableOpacity
       style={styles.fabContainer}
       activeOpacity={0.85}
-      onPress={() => {
-        if (Platform.OS !== 'web') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
-        navigation.navigate('DecisionScreen'); 
-      }}
+      onPress={handlePress}
     >
       <View style={styles.fabButton}>
         <Ionicons name="add" size={32} color={APP_COLORS.black} />
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const handleTabPress = () => {
   if (Platform.OS !== 'web') {
@@ -105,13 +127,18 @@ const handleTabPress = () => {
   }
 };
 
-function TabGroup() {
+// PERFORMANCE: Memoize TabGroup to prevent unnecessary re-renders
+const TabGroup = memo(() => {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
         tabBarHideOnKeyboard: true,
+        // PERFORMANCE: Detach inactive screens to free memory
+        lazy: true,
+        unmountOnBlur: false,
+        freezeOnBlur: true,
         sceneStyle: {
           backgroundColor: APP_COLORS.background,
         },
@@ -219,7 +246,7 @@ function TabGroup() {
       />
     </Tab.Navigator>
   );
-}
+});
 
 export default function AppNavigator({ user }) {
   return (
@@ -229,6 +256,9 @@ export default function AppNavigator({ user }) {
         contentStyle: {
           backgroundColor: APP_COLORS.background,
         },
+        // PERFORMANCE: Enable native animations for smoother transitions
+        animation: 'default',
+        animationDuration: 200,
       }}
     >
       {user ? (
@@ -236,14 +266,14 @@ export default function AppNavigator({ user }) {
           <Stack.Screen name="MainTabs" component={TabGroup} />
           <Stack.Screen 
             name="DecisionScreen" 
-            component={DecisionScreen} 
+            component={withSuspense(DecisionScreen)} 
             options={{
               animation: 'slide_from_right'
             }}
           />
           <Stack.Screen
             name="Profile"
-            component={ProfileScreen}
+            component={withSuspense(ProfileScreen)}
             options={{
               presentation: 'modal',
               animation: 'slide_from_bottom',
@@ -251,28 +281,28 @@ export default function AppNavigator({ user }) {
           />
           <Stack.Screen
             name="TaskHistory"
-            component={TaskHistoryScreen}
+            component={withSuspense(TaskHistoryScreen)}
             options={{
               animation: 'slide_from_right',
             }}
           />
           <Stack.Screen
             name="Notifications"
-            component={NotificationScreen}
+            component={withSuspense(NotificationScreen)}
             options={{
               animation: 'slide_from_right',
             }}
           />
           <Stack.Screen
             name="DepartmentPerformance"
-            component={DepartmentPerformanceScreen}
+            component={withSuspense(DepartmentPerformanceScreen)}
             options={{
               animation: 'slide_from_bottom',
             }}
           />
           <Stack.Screen
             name="Settings"
-            component={SettingsScreen}
+            component={withSuspense(SettingsScreen)}
             options={{
               animation: 'slide_from_right',
             }}
@@ -280,7 +310,7 @@ export default function AppNavigator({ user }) {
           {/* ✅ NEW: FAQ Screen */}
           <Stack.Screen
             name="FAQ"
-            component={FAQScreen}
+            component={withSuspense(FAQScreen)}
             options={{
               animation: 'slide_from_right',
             }}
@@ -288,7 +318,7 @@ export default function AppNavigator({ user }) {
           {/* ✅ NEW: Privacy Policy Screen */}
           <Stack.Screen
             name="PrivacyPolicy"
-            component={PrivacyPolicyScreen}
+            component={withSuspense(PrivacyPolicyScreen)}
             options={{
               animation: 'slide_from_right',
             }}

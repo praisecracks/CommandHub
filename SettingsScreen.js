@@ -171,7 +171,7 @@ export default function SettingsScreen() {
     try {
       setConfirmModal(prev => ({ ...prev, visible: false }));
       await signOut(auth);
-      navigation.replace('Login');
+      // navigation.replace('Landing');
     } catch (error) {
       showInfo('Error', 'Failed to sign out', 'error');
     }

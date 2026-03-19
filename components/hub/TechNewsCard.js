@@ -1,6 +1,6 @@
 // components/hub/TechNewsCard.js
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import React, { memo, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, Image, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -13,22 +13,33 @@ const COLORS = {
   white10: 'rgba(255,255,255,0.1)',
 };
 
-const TechNewsCard = ({ tweet, onPress }) => {
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+// PERFORMANCE: Memoize format function outside component
+const formatNumber = (num) => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num;
+};
+
+// PERFORMANCE: Memoize component to prevent unnecessary re-renders
+const TechNewsCard = memo(({ tweet, onPress }) => {
+  // PERFORMANCE: Memoize press handler
+  const handlePress = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     if (onPress) {
       onPress(tweet);
     } else if (tweet.url) {
       Linking.openURL(tweet.url);
     }
-  };
+  }, [tweet, onPress]);
 
-  // Format large numbers (e.g., 15400 -> 15.4K)
-  const formatNumber = (num) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num;
-  };
+  // PERFORMANCE: Memoize formatted stats
+  const formattedStats = useMemo(() => ({
+    likes: formatNumber(tweet.likes),
+    retweets: formatNumber(tweet.retweets),
+    replies: formatNumber(tweet.replies),
+  }), [tweet.likes, tweet.retweets, tweet.replies]);
 
   return (
     <TouchableOpacity
@@ -49,6 +60,8 @@ const TechNewsCard = ({ tweet, onPress }) => {
         <Image 
           source={{ uri: tweet.authorAvatar }} 
           style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+          // PERFORMANCE: Cache images for faster loading
+          resizeMode="cover"
         />
         <View style={{ flex: 1 }}>
           <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
@@ -69,7 +82,9 @@ const TechNewsCard = ({ tweet, onPress }) => {
         marginBottom: 12,
         maxHeight: 54,
         overflow: 'hidden'
-      }}>
+      }}
+        numberOfLines={3}
+      >
         {tweet.text}
       </Text>
 
@@ -85,21 +100,21 @@ const TechNewsCard = ({ tweet, onPress }) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Ionicons name="heart-outline" size={14} color={COLORS.textMuted} />
           <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>
-            {formatNumber(tweet.likes)}
+            {formattedStats.likes}
           </Text>
         </View>
         
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Ionicons name="repeat-outline" size={14} color={COLORS.textMuted} />
           <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>
-            {formatNumber(tweet.retweets)}
+            {formattedStats.retweets}
           </Text>
         </View>
         
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Ionicons name="chatbubble-outline" size={14} color={COLORS.textMuted} />
           <Text style={{ color: COLORS.textMuted, fontSize: 11 }}>
-            {formatNumber(tweet.replies)}
+            {formattedStats.replies}
           </Text>
         </View>
         
@@ -109,6 +124,6 @@ const TechNewsCard = ({ tweet, onPress }) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 export default TechNewsCard;

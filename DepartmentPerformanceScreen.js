@@ -36,10 +36,10 @@ const COLORS = {
 };
 
 const DEPARTMENTS = [
-  { id: 'unleashified', label: '🚀 Unleashified', color: '#00D2FF', icon: 'rocket-outline' },
-  { id: 'dimplified', label: '⚡ Dimplified', color: '#A855F7', icon: 'flash-outline' },
-  { id: 'remsana', label: '🌱 Remsana', color: '#10B981', icon: 'leaf-outline' },
-  { id: 'gfa', label: '🎓 GFA Foundation', color: '#F59E0B', icon: 'school-outline' },
+  { id: 'unleashified', label: ' Unleashified', color: '#00D2FF', icon: 'rocket-outline' },
+  { id: 'dimplified', label: ' Dimplified', color: '#A855F7', icon: 'flash-outline' },
+  { id: 'remsana', label: ' Remsana', color: '#10B981', icon: 'leaf-outline' },
+  { id: 'gfa', label: ' GFA Foundation', color: '#F59E0B', icon: 'school-outline' },
 ];
 
 const DepartmentCard = ({ department, tasks }) => {

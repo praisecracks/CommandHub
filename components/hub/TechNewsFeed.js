@@ -1,6 +1,6 @@
 // components/hub/TechNewsFeed.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,7 +25,7 @@ const TECH_NEWS_DATABASE = [
     id: '1',
     authorName: 'OpenAI',
     authorHandle: 'OpenAI',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1765803622353985536/aoFfPjGp_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=OpenAI&background=00D2FF&color=fff&size=128',
     text: 'GPT-5 training shows breakthrough in reasoning capabilities. Early tests indicate 40% improvement in complex problem-solving. 🧠',
     likes: 28400,
     retweets: 6200,
@@ -38,7 +38,7 @@ const TECH_NEWS_DATABASE = [
     id: '2',
     authorName: 'Google DeepMind',
     authorHandle: 'GoogleDeepMind',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1610526374758342656/WyBEdqVc_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=GDM&background=4285F4&color=fff&size=128',
     text: 'AlphaFold 3 now predicts all molecular interactions in life, not just proteins. Game changer for drug discovery! 💊',
     likes: 15600,
     retweets: 4300,
@@ -53,7 +53,7 @@ const TECH_NEWS_DATABASE = [
     id: '3',
     authorName: 'Apple',
     authorHandle: 'Apple',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1785867863191932928/EpOqfO6d_400x400.png',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Apple&background=333&color=fff&size=128',
     text: 'Vision Pro 2 announced with lighter design, longer battery life, and AI-powered spatial computing. Pre-orders next month. 👓',
     likes: 45200,
     retweets: 8900,
@@ -66,7 +66,7 @@ const TECH_NEWS_DATABASE = [
     id: '4',
     authorName: 'Samsung',
     authorHandle: 'Samsung',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1765803622353985536/aoFfPjGp_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Samsung&background=1428A0&color=fff&size=128',
     text: 'Galaxy Z Fold 7 features under-display camera, 200MP main sensor, and AI photo editing. Available August. 📱',
     likes: 21300,
     retweets: 4700,
@@ -81,7 +81,7 @@ const TECH_NEWS_DATABASE = [
     id: '5',
     authorName: 'Visual Studio Code',
     authorHandle: 'code',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1836913937931804672/mHrZTqPX_400x400.png',
+    authorAvatar: 'https://ui-avatars.com/api/?name=VSCode&background=007ACC&color=fff&size=128',
     text: 'VS Code 2.0 introduces AI pair programming, voice commands, and real-time collaboration. Download now! 💻',
     likes: 18900,
     retweets: 5400,
@@ -94,7 +94,7 @@ const TECH_NEWS_DATABASE = [
     id: '6',
     authorName: 'GitHub',
     authorHandle: 'github',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1610526374758342656/WyBEdqVc_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=GitHub&background=333&color=fff&size=128',
     text: 'GitHub Copilot Workspaces: AI-powered development environments that write, test, and deploy your code. 🤖',
     likes: 32400,
     retweets: 7800,
@@ -109,7 +109,7 @@ const TECH_NEWS_DATABASE = [
     id: '7',
     authorName: 'Python',
     authorHandle: 'python',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1785867863191932928/EpOqfO6d_400x400.png',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Python&background=3776AB&color=fff&size=128',
     text: 'Python 4.0 roadmap: Faster interpreter, optional typing, and mobile support. Community feedback open until Friday. 🐍',
     likes: 15200,
     retweets: 3900,
@@ -122,7 +122,7 @@ const TECH_NEWS_DATABASE = [
     id: '8',
     authorName: 'Rust',
     authorHandle: 'rustlang',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1765803622353985536/aoFfPjGp_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Rust&background=DEA584&color=000&size=128',
     text: 'Rust 2026 edition: Async improvements, better compile times, and WebAssembly enhancements. 🦀',
     likes: 9800,
     retweets: 2100,
@@ -137,7 +137,7 @@ const TECH_NEWS_DATABASE = [
     id: '9',
     authorName: 'TechCrunch',
     authorHandle: 'TechCrunch',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1836913937931804672/mHrZTqPX_400x400.png',
+    authorAvatar: 'https://ui-avatars.com/api/?name=TC&background=0A9340&color=fff&size=128',
     text: 'Startup funding hits $89B in Q2 2026, led by AI and climate tech. Biggest quarter since 2021. 📈',
     likes: 6700,
     retweets: 1800,
@@ -150,7 +150,7 @@ const TECH_NEWS_DATABASE = [
     id: '10',
     authorName: 'The Verge',
     authorHandle: 'verge',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1610526374758342656/WyBEdqVc_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Verge&background=333&color=fff&size=128',
     text: 'EU Digital Markets Act forces Apple to allow third-party app stores and alternate payment systems. Big changes coming. 🇪🇺',
     likes: 23400,
     retweets: 5600,
@@ -165,7 +165,7 @@ const TECH_NEWS_DATABASE = [
     id: '11',
     authorName: 'Krebs on Security',
     authorHandle: 'briankrebs',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1785867863191932928/EpOqfO6d_400x400.png',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Krebs&background=FF6600&color=fff&size=128',
     text: 'New ransomware group targeting cloud backups. Ensure your 3-2-1 backup strategy is up to date. 🔒',
     likes: 8900,
     retweets: 3400,
@@ -180,7 +180,7 @@ const TECH_NEWS_DATABASE = [
     id: '12',
     authorName: 'NVIDIA',
     authorHandle: 'nvidia',
-    authorAvatar: 'https://pbs.twimg.com/profile_images/1765803622353985536/aoFfPjGp_400x400.jpg',
+    authorAvatar: 'https://ui-avatars.com/api/?name=NVIDIA&background=76B900&color=fff&size=128',
     text: 'RTX 6090 announced: 4x ray tracing performance, AI-powered frame generation, and 48GB VRAM. 🎮',
     likes: 56700,
     retweets: 12300,
@@ -206,13 +206,15 @@ const updateTimestamps = (news) => {
   }));
 };
 
-const TechNewsFeed = ({ limit = 3, showHeader = true, onRefresh }) => {
+// PERFORMANCE: Memoize component to prevent unnecessary re-renders
+const TechNewsFeed = memo(({ limit = 3, showHeader = true, onRefresh }) => {
   const [tweets, setTweets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
 
-  const fetchTweets = async (forceFresh = false) => {
+  // PERFORMANCE: Memoize fetch function to prevent recreation on every render
+  const fetchTweets = useCallback(async (forceFresh = false) => {
     try {
       // If not forcing fresh, check cache first
       if (!forceFresh) {
@@ -256,27 +258,33 @@ const TechNewsFeed = ({ limit = 3, showHeader = true, onRefresh }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [limit]); // Only recreate if limit changes
 
   // Initial load
   useEffect(() => {
     fetchTweets();
-  }, []);
+  }, [fetchTweets]);
 
-  const handleRefresh = async () => {
+  // PERFORMANCE: Memoize refresh handler
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     await fetchTweets(true); // Force fresh content
     onRefresh?.();
-  };
+  }, [fetchTweets, onRefresh]);
 
-  // Format last refresh time
-  const getLastRefreshText = () => {
+  // PERFORMANCE: Memoize last refresh text calculation
+  const getLastRefreshText = useCallback(() => {
     const seconds = Math.floor((Date.now() - lastRefresh) / 1000);
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     return `${Math.floor(seconds / 3600)}h ago`;
-  };
+  }, [lastRefresh]);
+
+  // PERFORMANCE: Memoize displayed tweets to prevent recalculation
+  const displayedTweets = useMemo(() => tweets.slice(0, limit), [tweets, limit]);
 
   if (loading) {
     return (
@@ -345,13 +353,17 @@ const TechNewsFeed = ({ limit = 3, showHeader = true, onRefresh }) => {
         horizontal 
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 12, paddingRight: 8 }}
+        // PERFORMANCE: Remove clipped subviews for better scroll performance
+        removeClippedSubviews={true}
+        // PERFORMANCE: Optimize scroll performance
+        decelerationRate="fast"
       >
-        {tweets.slice(0, limit).map(tweet => (
+        {displayedTweets.map(tweet => (
           <TechNewsCard key={tweet.id} tweet={tweet} />
         ))}
       </ScrollView>
     </View>
   );
-};
+});
 
 export default TechNewsFeed;

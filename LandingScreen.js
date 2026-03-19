@@ -1,172 +1,465 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-  View, Text, TouchableOpacity, StatusBar, Animated, FlatList, Dimensions, Linking, Easing 
+// screens/LandingScreen.js
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  Animated,
+  Linking,
+  Image,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-
-const SLIDES = [
-  {
-    id: '1',
-    title: 'Team Harmony',
-    description: 'A dedicated space to organize your staff and simplify daily HR tasks.',
-    icon: 'heart-outline'
-  },
-  {
-    id: '2',
-    title: 'Privacy First',
-    description: 'Your organizational data is protected with professional-grade security.',
-    icon: 'shield-checkmark-outline'
-  },
-  {
-    id: '3',
-    title: 'Smooth Workflow',
-    description: 'Manage payroll and recruitment with a clear, easy-to-use interface.',
-    icon: 'leaf-outline'
-  }
-];
+const { width, height } = Dimensions.get('window');
 
 export default function LandingScreen({ navigation }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef(null);
-  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-  const contentFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(contentFade, { toValue: 1, duration: 1200, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
-          duration: 4000,
-          easing: Easing.bezier(0.42, 0, 0.58, 1),
-          useNativeDriver: true
+          duration: 3000,
+          useNativeDriver: true,
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
-          duration: 4000,
-          easing: Easing.bezier(0.42, 0, 0.58, 1),
-          useNativeDriver: true
-        })
+          duration: 3000,
+          useNativeDriver: true,
+        }),
       ])
     ).start();
+  }, []);
 
-    const interval = setInterval(() => {
-      let nextIndex = (currentIndex + 1) % SLIDES.length;
-      setCurrentIndex(nextIndex);
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-    }, 5000);
+  const handlePressIn = () => {
+    Animated.spring(buttonScale, {
+      toValue: 0.97,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
 
-    return () => clearInterval(interval);
-  }, [currentIndex]);
+  const handlePressOut = () => {
+    Animated.spring(buttonScale, {
+      toValue: 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
 
-  const renderSlide = ({ item }) => (
-    <View style={{ width: width - 80 }} className="items-center justify-center">
-      <View className="w-20 h-20 bg-white/5 rounded-[30px] items-center justify-center mb-8 border border-white/10">
-        <Ionicons name={item.icon} size={40} color="#00D2FF" />
-      </View>
-      <Text className="text-white text-3xl font-bold mb-4 tracking-tight text-center">{item.title}</Text>
-      <Text className="text-gray-400 text-center text-lg leading-7 px-4">
-        {item.description}
-      </Text>
-    </View>
-  );
+  const features = [
+    { icon: 'people-outline', text: 'Team Management', color: '#22D3EE' },
+    { icon: 'shield-checkmark-outline', text: 'Secure Data', color: '#3B82F6' },
+    { icon: 'flash-outline', text: 'AI Insights', color: '#F59E0B' },
+    { icon: 'trending-up-outline', text: 'Smart Analytics', color: '#10B981' },
+  ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#050508' }}>
-      <StatusBar barStyle="light-content" />
-      
-      <Animated.View 
-        style={{
-          opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.2] }),
-          transform: [
-            { scale: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.4] }) },
-            { translateY: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -50] }) }
-          ]
-        }}
-        className="absolute top-[15%] left-[-10%] w-[120%] h-[50%] bg-[#00D2FF] rounded-full blur-[80px]"
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Background Gradient Layers */}
+      <View style={styles.gradientBg}>
+        <View style={styles.gradientTop} />
+        <View style={styles.gradientMiddle} />
+        <View style={styles.gradientBottom} />
+      </View>
+
+      {/* Floating Glow Effect */}
+      <Animated.View
+        style={[
+          styles.glowOrb,
+          {
+            opacity: glowAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.2, 0.5],
+            }),
+            transform: [
+              {
+                scale: glowAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.2],
+                }),
+              },
+            ],
+          },
+        ]}
       />
 
-      <SafeAreaView style={{ flex: 1 }}>
-        <Animated.View style={{ opacity: contentFade, flex: 1 }} className="px-10 py-8 justify-between">
-          
-          {/* 1. TOP: LOGO */}
-          <View className="mt-4 flex-row items-center justify-between">
-            <View>
-              <Text className="text-white text-xl font-light tracking-[3px]">
-                WORK<Text className="font-bold text-[#00D2FF]">HUB</Text>
-              </Text>
-              <View className="h-[2px] w-6 bg-[#00D2FF] mt-1" />
-            </View>
-            <Ionicons name="apps-outline" size={20} color="#4B5563" />
-          </View>
+      {/* Faded Logo Watermark in Background */}
+      <View style={styles.watermarkContainer}>
+        <Image
+          source={require('./assets/CustomLogoNoBg.png')}
+          style={styles.watermarkLogo}
+          resizeMode="contain"
+        />
+      </View>
 
-          {/* 2. CENTER: CAROUSEL */}
-          <View className="h-80">
-            <FlatList
-              ref={flatListRef}
-              data={SLIDES}
-              renderItem={renderSlide}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              onMomentumScrollEnd={(event) => {
-                const index = Math.round(event.nativeEvent.contentOffset.x / (width - 80));
-                setCurrentIndex(index);
-              }}
-            />
-            <View className="flex-row justify-center mt-12 gap-x-3">
-              {SLIDES.map((_, i) => (
-                <View 
-                  key={i} 
-                  className={`h-1 rounded-full ${currentIndex === i ? 'w-10 bg-[#00D2FF]' : 'w-2 bg-gray-800'}`} 
+      <SafeAreaView style={styles.safeArea}>
+        <Animated.View
+          style={[
+            styles.animatedContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoWrapper}>
+                <Image
+                  source={require('./assets/CustomLogoNoBg.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
                 />
-              ))}
-            </View>
-          </View>
-
-          {/* 3. BOTTOM: UPDATED ACTIONS */}
-          <View className="gap-y-4">
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Login')} 
-              activeOpacity={0.8}
-              className="bg-[#00D2FF] py-5 rounded-[22px] items-center shadow-xl shadow-[#00D2FF]/30"
-            >
-              <Text className="text-black font-bold text-lg uppercase tracking-widest">Sign In to Hub</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('SignUp')} 
-              activeOpacity={0.7}
-              className="bg-white/5 border border-white/10 py-5 rounded-[22px] items-center"
-            >
-              <Text className="text-white font-bold text-lg uppercase tracking-widest">Create Account</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={() => Linking.openURL('https://your-domain.com/app.apk')}
-              className="py-2 items-center"
-            >
-              <View className="flex-row items-center">
-                <Ionicons name="cloud-download-outline" size={16} color="#6B7280" />
-                <Text className="text-gray-500 font-medium text-sm ml-2">Download Offline Copy</Text>
               </View>
-            </TouchableOpacity>
-            
-            <View className="items-center mt-2">
-              <Text className="text-gray-800 text-[10px] font-bold uppercase tracking-[4px]">
-                Secure HR Environment
-              </Text>
+              <View>
+                <Text style={styles.logoText}>
+                  Command<Text style={styles.logoAccent}>Hub</Text>
+                </Text>
+                <Text style={styles.logoSubtext}>Intelligence Platform</Text>
+              </View>
             </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.8}
+              style={styles.skipButton}
+            >
+              <Text style={styles.skipText}>Skip</Text>
+            </TouchableOpacity>
           </View>
 
+          {/* Hero Section */}
+          <View style={styles.heroSection}>
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>Intelligence Hub</Text>
+            </View>
+            <Text style={styles.heroTitle}>
+              Smarter{'\n'}
+              <Text style={styles.heroAccent}>Workplace Management</Text>
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              Manage teams, track insights, and make smarter decisions, all in one place.
+            </Text>
+          </View>
+
+          {/* Features Grid */}
+          <View style={styles.featuresGrid}>
+            {features.map((feature, index) => (
+              <View key={index} style={styles.featureCard}>
+                <View style={[styles.featureIconWrapper, { backgroundColor: `${feature.color}20` }]}>
+                  <Ionicons name={feature.icon} size={20} color={feature.color} />
+                </View>
+                <Text style={styles.featureText}>{feature.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* CTA Buttons */}
+          <View style={styles.ctaSection}>
+            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Login')}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                activeOpacity={0.9}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>Get Started</Text>
+                <Ionicons name="arrow-forward" size={18} color="#000" />
+              </TouchableOpacity>
+            </Animated.View>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignUp')}
+              activeOpacity={0.8}
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>Create Account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://your-domain.com/app.apk')}
+              activeOpacity={0.7}
+              style={styles.downloadButton}
+            >
+              <Ionicons name="cloud-download-outline" size={16} color="#9CA3AF" />
+              <Text style={styles.downloadText}>Download App</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.footerText}>SECURE • ENCRYPTED • RELIABLE</Text>
+          </View>
         </Animated.View>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#030507',
+  },
+  gradientBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  gradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.4,
+    backgroundColor: '#0A0F1A',
+  },
+  gradientMiddle: {
+    position: 'absolute',
+    top: height * 0.3,
+    left: 0,
+    right: 0,
+    height: height * 0.4,
+    backgroundColor: '#05080F',
+  },
+  gradientBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.3,
+    backgroundColor: '#030507',
+  },
+  glowOrb: {
+    position: 'absolute',
+    top: height * 0.2,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#00D2FF',
+  },
+  watermarkContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.06,
+  },
+  watermarkLogo: {
+    width: width * 0.7,
+    height: width * 0.7,
+    opacity: 0.5,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  animatedContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    justifyContent: 'space-between',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,210,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,210,255,0.3)',
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  logoAccent: {
+    color: '#00D2FF',
+  },
+  logoSubtext: {
+    color: '#6B7280',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  skipText: {
+    color: '#00D2FF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  heroSection: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  heroBadge: {
+    backgroundColor: 'rgba(0,210,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(0,210,255,0.3)',
+    marginBottom: 16,
+  },
+  heroBadgeText: {
+    color: '#00D2FF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 44,
+  },
+  heroAccent: {
+    color: '#00D2FF',
+  },
+  heroSubtitle: {
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontSize: 15,
+    marginTop: 16,
+    lineHeight: 24,
+    maxWidth: '90%',
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginVertical: 24,
+  },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 6,
+    marginVertical: 6,
+  },
+  featureIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  featureText: {
+    color: '#E5E7EB',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  ctaSection: {
+    marginBottom: 16,
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00D2FF',
+    paddingVertical: 16,
+    borderRadius: 28,
+    marginBottom: 12,
+    gap: 8,
+    shadowColor: '#00D2FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  primaryButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 16,
+    borderRadius: 28,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  secondaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  downloadText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  footerText: {
+    color: '#374151',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 24,
+    letterSpacing: 1.5,
+  },
+});

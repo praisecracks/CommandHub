@@ -8,6 +8,7 @@ import {
   Modal,
   TouchableOpacity,
   Platform,
+  Image,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -40,6 +41,9 @@ const COLORS = {
   white05: 'rgba(255,255,255,0.05)',
 };
 
+// Import your logo (adjust path as needed)
+const LOGO = require('../../assets/CustomLogoNoBg.png');
+
 const CustomLoader = ({
   type = 'inline',
   size = 'medium',
@@ -53,10 +57,13 @@ const CustomLoader = ({
   transparent = false,
   visible = true,
   variant = 'command',
+  showLogo = true, // NEW: Toggle logo display
+  logoSize = 60, // NEW: Custom logo size
 }) => {
   const rotation = useSharedValue(0);
   const pulse = useSharedValue(1);
   const orbitScale = useSharedValue(1);
+  const logoScale = useSharedValue(1);
   const [timedOut, setTimedOut] = useState(false);
 
   const getLoaderSize = () => {
@@ -95,6 +102,16 @@ const CustomLoader = ({
         false
       );
 
+      // Gentle pulse for logo
+      logoScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+          withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) })
+        ),
+        -1,
+        true
+      );
+
       if (type === 'fullscreen' && Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -105,7 +122,6 @@ const CustomLoader = ({
     return () => {};
   }, [visible]);
 
-  // ✅ FIXED: All shared value reads are inside useAnimatedStyle
   const rotationStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value * 360}deg` }],
   }));
@@ -123,6 +139,10 @@ const CustomLoader = ({
     transform: [{ scale: orbitScale.value }],
   }));
 
+  const logoScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
+
   const progressStyle = useAnimatedStyle(() => {
     if (progress === undefined) return {};
     return {
@@ -130,7 +150,6 @@ const CustomLoader = ({
     };
   });
 
-  // ✅ FIXED: Orbit dot positions calculated with useAnimatedStyle
   const renderOrbitDots = () => {
     const dots = [...Array(4)];
     return dots.map((_, i) => {
@@ -164,6 +183,80 @@ const CustomLoader = ({
     });
   };
 
+  // NEW: Logo loader variant
+  const renderLogoLoader = () => (
+    <View style={[styles.loaderWrapper, { width: logoSize, height: logoSize }]}>
+      {/* Outer rotating ring */}
+      <Animated.View 
+        style={[
+          styles.logoRing,
+          {
+            width: logoSize + 20,
+            height: logoSize + 20,
+            borderRadius: (logoSize + 20) / 2,
+            borderColor: color,
+          },
+          rotationStyle
+        ]} 
+      />
+      
+      {/* Inner rotating ring (opposite direction) */}
+      <Animated.View 
+        style={[
+          styles.logoInnerRing,
+          {
+            width: logoSize + 10,
+            height: logoSize + 10,
+            borderRadius: (logoSize + 10) / 2,
+            borderColor: color,
+          },
+          reverseRotationStyle
+        ]} 
+      />
+      
+      {/* Logo with gentle pulse */}
+      <Animated.View style={logoScaleStyle}>
+        <Image 
+          source={LOGO}
+          style={{
+            width: logoSize,
+            height: logoSize,
+            resizeMode: 'contain',
+          }}
+        />
+      </Animated.View>
+
+      {/* Scanning effect dots */}
+      <View style={styles.scanningDots}>
+        {[...Array(8)].map((_, i) => {
+          const dotAngle = (i * 45) * Math.PI / 180;
+          const dotX = Math.cos(dotAngle) * (logoSize + 15);
+          const dotY = Math.sin(dotAngle) * (logoSize + 15);
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                styles.scanDot,
+                {
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: color,
+                  transform: [
+                    { translateX: dotX },
+                    { translateY: dotY },
+                    { scale: pulse.value }
+                  ],
+                  opacity: 0.3 - (i * 0.03),
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+
   const renderCommandLoader = () => (
     <View style={[styles.loaderWrapper, type === 'button' && styles.buttonWrapper]}>
       <Animated.View style={[styles.outerRing, { width: loaderSize, height: loaderSize, borderRadius: loaderSize / 2, borderColor: color }, rotationStyle]} />
@@ -181,20 +274,34 @@ const CustomLoader = ({
         ]} 
       />
 
-      <Animated.View 
-        style={[
-          styles.innerCore,
-          { 
-            width: loaderSize * 0.4, 
-            height: loaderSize * 0.4, 
-            borderRadius: loaderSize * 0.2,
-            backgroundColor: color,
-          },
-          pulseStyle
-        ]} 
-      >
-        <View style={[styles.coreInner, { backgroundColor: COLORS.background }]} />
-      </Animated.View>
+      {/* Replace inner core with logo if showLogo is true */}
+      {showLogo ? (
+        <Animated.View style={logoScaleStyle}>
+          <Image 
+            source={LOGO}
+            style={{
+              width: loaderSize * 0.5,
+              height: loaderSize * 0.5,
+              resizeMode: 'contain',
+            }}
+          />
+        </Animated.View>
+      ) : (
+        <Animated.View 
+          style={[
+            styles.innerCore,
+            { 
+              width: loaderSize * 0.4, 
+              height: loaderSize * 0.4, 
+              borderRadius: loaderSize * 0.2,
+              backgroundColor: color,
+            },
+            pulseStyle
+          ]} 
+        >
+          <View style={[styles.coreInner, { backgroundColor: COLORS.background }]} />
+        </Animated.View>
+      )}
 
       {progress !== undefined && (
         <View style={[styles.progressRing, { width: loaderSize * 1.2, height: loaderSize * 1.2 }]}>
@@ -232,7 +339,20 @@ const CustomLoader = ({
           ]}
         />
       ))}
-      <View style={[styles.pulseCore, { width: loaderSize * 0.3, height: loaderSize * 0.3, borderRadius: loaderSize * 0.15, backgroundColor: color }]} />
+      {showLogo ? (
+        <Animated.View style={logoScaleStyle}>
+          <Image 
+            source={LOGO}
+            style={{
+              width: loaderSize * 0.4,
+              height: loaderSize * 0.4,
+              resizeMode: 'contain',
+            }}
+          />
+        </Animated.View>
+      ) : (
+        <View style={[styles.pulseCore, { width: loaderSize * 0.3, height: loaderSize * 0.3, borderRadius: loaderSize * 0.15, backgroundColor: color }]} />
+      )}
     </View>
   );
 
@@ -241,22 +361,40 @@ const CustomLoader = ({
       <Animated.View style={[styles.orbitRing, { width: loaderSize, height: loaderSize }, rotationStyle]}>
         {renderOrbitDots()}
       </Animated.View>
-      <Animated.View 
-        style={[
-          styles.orbitCore, 
-          { 
-            width: loaderSize * 0.2, 
-            height: loaderSize * 0.2, 
-            borderRadius: loaderSize * 0.1, 
-            backgroundColor: color 
-          },
-          orbitScaleStyle
-        ]} 
-      />
+      {showLogo ? (
+        <Animated.View style={logoScaleStyle}>
+          <Image 
+            source={LOGO}
+            style={{
+              width: loaderSize * 0.3,
+              height: loaderSize * 0.3,
+              resizeMode: 'contain',
+            }}
+          />
+        </Animated.View>
+      ) : (
+        <Animated.View 
+          style={[
+            styles.orbitCore, 
+            { 
+              width: loaderSize * 0.2, 
+              height: loaderSize * 0.2, 
+              borderRadius: loaderSize * 0.1, 
+              backgroundColor: color 
+            },
+            orbitScaleStyle
+          ]} 
+        />
+      )}
     </View>
   );
 
   const renderLoaderUI = () => {
+    // Special logo-only loader
+    if (variant === 'logo') {
+      return renderLogoLoader();
+    }
+    
     switch (variant) {
       case 'pulse':
         return renderPulseLoader();
@@ -320,7 +458,18 @@ const CustomLoader = ({
   if (type === 'button') {
     return (
       <View style={styles.buttonLoader}>
-        <Animated.View style={[styles.buttonRing, { width: 16, height: 16, borderColor: color }, rotationStyle]} />
+        {showLogo ? (
+          <Image 
+            source={LOGO}
+            style={{
+              width: 20,
+              height: 20,
+              resizeMode: 'contain',
+            }}
+          />
+        ) : (
+          <Animated.View style={[styles.buttonRing, { width: 16, height: 16, borderColor: color }, rotationStyle]} />
+        )}
       </View>
     );
   }
@@ -392,6 +541,29 @@ const styles = StyleSheet.create({
     width: '60%',
     height: '60%',
     borderRadius: 100,
+  },
+  // New styles for logo loader
+  logoRing: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    opacity: 0.3,
+  },
+  logoInnerRing: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderStyle: 'dotted',
+    opacity: 0.5,
+  },
+  scanningDots: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanDot: {
+    position: 'absolute',
   },
   pulseRing: {
     position: 'absolute',

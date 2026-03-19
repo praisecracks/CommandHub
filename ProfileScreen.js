@@ -118,7 +118,7 @@ export default function ProfileScreen() {
     useCallback(() => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        navigation.replace('Login');
+        navigation.replace('Landing');
         return;
       }
 
