@@ -6,14 +6,36 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import ConfigService from './ConfigService';  // Keep this import
+import ConfigService from './ConfigService';
 
-// Get API keys from environment
-const {
-  EXPO_PUBLIC_CALENDARIFIC_API_KEY,
-  EXPO_PUBLIC_OPENWEATHER_API_KEY,
-  EXPO_PUBLIC_NEWS_API_KEY,
-} = Constants.expoConfig?.extra || {};
+// ✅ FIXED: Get API keys correctly for both web and native with fallbacks
+const getApiKeys = () => {
+  // For web development (process.env from .env file)
+  if (Platform.OS === 'web') {
+    return {
+      calendarific: process.env.EXPO_PUBLIC_CALENDARIFIC_API_KEY,
+      openweather: process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY,
+      news: process.env.EXPO_PUBLIC_NEWS_API_KEY,
+    };
+  }
+  
+  // For native (Android/iOS) - use Constants with fallbacks
+  const extra = Constants.expoConfig?.extra || {};
+  return {
+    calendarific: extra.EXPO_PUBLIC_CALENDARIFIC_API_KEY || "5qIhcLxcv21jR8ntmwMRuhRC4ZmVpRsb",
+    openweather: extra.EXPO_PUBLIC_OPENWEATHER_API_KEY || "ecbd81ebc6dd579d9406166906d467a7",
+    news: extra.EXPO_PUBLIC_NEWS_API_KEY || "58f3ca1bf42b417f8dd549b4c9ec2768",
+  };
+};
+
+const API_KEYS = getApiKeys();
+
+// Debug logging
+console.log('🔑 SignalService API Keys:', {
+  calendarific: API_KEYS.calendarific ? '✅ Present' : '❌ Missing',
+  openweather: API_KEYS.openweather ? '✅ Present' : '❌ Missing',
+  news: API_KEYS.news ? '✅ Present' : '❌ Missing',
+});
 
 class SignalService {
   // Helper to ensure config is loaded
@@ -33,18 +55,14 @@ class SignalService {
       return [];
     }
 
-    // Get config once
     const config = await this.getConfig();
-    
     const newSignals = [];
     
     try {
       console.log('✅ User found, checking sources...');
       
-      // Get feature flags
       const featureFlags = config.get('FEATURE_FLAGS') || {};
       
-      // Check each source based on feature flags
       if (featureFlags.enableHolidays !== false) {
         const holidays = await this.checkPublicHolidays(config);
         newSignals.push(...holidays);
@@ -60,7 +78,6 @@ class SignalService {
         newSignals.push(...news);
       }
       
-      // Save all new signals to Firestore
       let savedCount = 0;
       for (const signal of newSignals) {
         const saved = await this.saveSignal(signal, config);
@@ -85,7 +102,6 @@ class SignalService {
       const cacheKey = `@holidays_${country}_${year}`;
       const cacheDuration = (cacheDurations.holidaysDays || 7) * 24 * 60 * 60 * 1000;
       
-      // Check cache
       try {
         const cachedData = await AsyncStorage.getItem(cacheKey);
         if (cachedData) {
@@ -103,14 +119,14 @@ class SignalService {
           }
         }
       } catch (cacheErr) {
-        // Silent fail - just fetch fresh data
+        // Silent fail
       }
 
       console.log('🌐 Fetching fresh holiday data from API...');
       const apiUrl = 'https://calendarific.com/api/v2/holidays';
       const response = await axios.get(apiUrl, {
         params: {
-          api_key: EXPO_PUBLIC_CALENDARIFIC_API_KEY,
+          api_key: API_KEYS.calendarific,
           country: country,
           year: year,
         },
@@ -124,7 +140,6 @@ class SignalService {
       
       const holidays = response.data.response.holidays;
       
-      // Save to cache
       await AsyncStorage.setItem(cacheKey, JSON.stringify({
         timestamp: Date.now(),
         data: holidays,
@@ -133,7 +148,9 @@ class SignalService {
       
       return this.formatHolidays(holidays);
     } catch (error) {
-      if (error.response?.status === 429) {
+      if (error.response?.status === 401) {
+        console.log('⚠️ Calendarific API key invalid');
+      } else if (error.response?.status === 429) {
         console.log('⚠️ Calendarific rate limit exceeded');
       } else {
         console.error('Error fetching holidays:', error.message);
@@ -152,7 +169,6 @@ class SignalService {
       const cacheKey = `@weather_${city}`;
       const cacheDuration = (cacheDurations.weatherMinutes || 30) * 60 * 1000;
       
-      // Check cache
       try {
         const cachedData = await AsyncStorage.getItem(cacheKey);
         if (cachedData) {
@@ -170,7 +186,7 @@ class SignalService {
       const response = await axios.get(apiUrl, {
         params: {
           q: city,
-          appid: EXPO_PUBLIC_OPENWEATHER_API_KEY,
+          appid: API_KEYS.openweather,
           units: units,
         },
         timeout: 10000,
@@ -178,7 +194,6 @@ class SignalService {
       
       const weather = response.data;
       
-      // Cache weather data
       await AsyncStorage.setItem(cacheKey, JSON.stringify({
         timestamp: Date.now(),
         data: weather
@@ -187,7 +202,7 @@ class SignalService {
       return this.formatWeatherAlerts(weather, config);
     } catch (error) {
       if (error.response?.status === 401) {
-        console.log('⏳ Weather API key still activating');
+        console.log('⚠️ OpenWeather API key invalid');
       } else {
         console.error('Error fetching weather:', error.message);
       }
@@ -195,7 +210,7 @@ class SignalService {
     }
   }
 
-  // 3. 📰 INDUSTRY NEWS
+  // 3. 📰 INDUSTRY NEWS - ONLY ONE VERSION!
   static async checkIndustryNews(config) {
     try {
       const apiConfig = config.get('API_CONFIG') || {};
@@ -205,7 +220,6 @@ class SignalService {
       const cacheKey = `@news_${query}`;
       const cacheDuration = (cacheDurations.newsHours || 6) * 60 * 60 * 1000;
       
-      // Check cache
       try {
         const cachedData = await AsyncStorage.getItem(cacheKey);
         if (cachedData) {
@@ -220,10 +234,12 @@ class SignalService {
       }
       
       const apiUrl = 'https://newsapi.org/v2/everything';
+      
+      // ✅ FIXED: Using API_KEYS.news (not EXPO_PUBLIC_NEWS_API_KEY directly)
       const response = await axios.get(apiUrl, {
         params: {
           q: query,
-          apiKey: EXPO_PUBLIC_NEWS_API_KEY,
+          apiKey: API_KEYS.news,
           pageSize: pageSize,
           sortBy: 'publishedAt',
         },
@@ -232,7 +248,6 @@ class SignalService {
       
       const articles = response.data?.articles || [];
       
-      // Cache news
       await AsyncStorage.setItem(cacheKey, JSON.stringify({
         timestamp: Date.now(),
         data: articles
@@ -240,7 +255,11 @@ class SignalService {
       
       return this.formatNews(articles);
     } catch (error) {
-      console.error('Error fetching news:', error.message);
+      if (error.response?.status === 401) {
+        console.log('⚠️ News API key invalid');
+      } else {
+        console.error('Error fetching news:', error.message);
+      }
       return [];
     }
   }
@@ -353,7 +372,6 @@ class SignalService {
           createdAt: serverTimestamp(),
         });
         
-        // Check if we should send notification
         const notifConfig = config?.get('NOTIFICATION_CONFIG') || {};
         const notifyOnlyHighRisk = notifConfig.notifyOnlyHighRisk !== false;
         const shouldNotify = notifyOnlyHighRisk 
@@ -376,7 +394,6 @@ class SignalService {
 
   // Helper: Send notification - Platform aware
   static async sendSignalNotification(signal, config) {
-    // Skip notifications on web
     if (Platform.OS === 'web') {
       console.log('🌐 Web platform - skipping notification');
       return;

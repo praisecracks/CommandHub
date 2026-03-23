@@ -202,7 +202,7 @@ export default function LandingScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => Linking.openURL('https://your-domain.com/app.apk')}
+              onPress={() => Linking.openURL('https://expo.dev/accounts/praisecrackdev/projects/my-expo-app/builds/d10bc18f-474a-42b4-925d-f05213c839f9')}
               activeOpacity={0.7}
               style={styles.downloadButton}
             >

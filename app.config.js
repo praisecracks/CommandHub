@@ -46,7 +46,7 @@ export default {
       eas: {
         projectId: "eba16db0-6404-4497-ae9a-1195194ddb4a"
       },
-      // ✅ THESE READ FROM YOUR .env FILE (NO HARDCODED KEYS)
+      // These read from .env file (safe to commit)
       EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
       EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
       EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
@@ -56,7 +56,7 @@ export default {
       EXPO_PUBLIC_CALENDARIFIC_API_KEY: process.env.EXPO_PUBLIC_CALENDARIFIC_API_KEY,
       EXPO_PUBLIC_OPENWEATHER_API_KEY: process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY,
       EXPO_PUBLIC_NEWS_API_KEY: process.env.EXPO_PUBLIC_NEWS_API_KEY,
-      // Your feature flags (these are safe)
+      // Feature flags (safe to commit)
       FEATURE_FLAGS: {
         enableHolidays: true,
         enableWeather: true,
